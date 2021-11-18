@@ -102,6 +102,22 @@
         }
       }
 
+      // USING A MIDDLEWARE
+      // We return another function. Next will be the next middleware if there is any
+        // and the dispatch, if there is no more middleware
+      const checker = store => next => action => {
+        if (
+            action.type === ADD_TODO
+            && action.todo.name.toLowerCase().includes('bitcoin')
+            || action.type === ADD_GOAL
+            && action.goal.name.toLowerCase().includes('bitcoin')
+          ) {
+            return alert('Nope! That\'s a bad idea.')
+          }
+
+          return next(action)
+      }
+
       // App appending the store
       // Not needed when using Redux, look at the new store below
       // function app (state = {}, action) {
@@ -113,10 +129,11 @@
       // }
 
       // const store = Redux.createStore(app)
-      const store = Redux.createStore(Redux.combineReducers({
-        todos,
-        goals
-      }))
+      // We pass the middleware as the second argument
+      const store = Redux.createStore(
+        Redux.combineReducers({ todos, goals }),
+        Redux.applyMiddleware(checker)
+        )
 
       store.subscribe(() => {
         const { goals, todos } = store.getState()
