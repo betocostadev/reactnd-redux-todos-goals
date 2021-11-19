@@ -9,3 +9,7 @@ Simple store created using only JS, no React and Redux used
 ### with-redux
 
 Same store as vanilla but using Redux (using from CDN)
+
+### react-redux
+
+Same store as the others, but using React for the UI
