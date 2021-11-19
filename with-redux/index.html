@@ -118,6 +118,18 @@
           return next(action)
       }
 
+      // Second MIDDLEWARE - Logger
+      const logger = store => next => action => {
+        console.group(action.type)
+        console.log('The action: ', action)
+        const result = next(action)
+        console.log('The new state is: ', store.getState())
+
+        console.groupEnd()
+        return result
+      }
+
+
       // App appending the store
       // Not needed when using Redux, look at the new store below
       // function app (state = {}, action) {
@@ -132,7 +144,7 @@
       // We pass the middleware as the second argument
       const store = Redux.createStore(
         Redux.combineReducers({ todos, goals }),
-        Redux.applyMiddleware(checker)
+        Redux.applyMiddleware(checker, logger)
         )
 
       store.subscribe(() => {
