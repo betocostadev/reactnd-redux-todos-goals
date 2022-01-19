@@ -20,12 +20,16 @@ Only exercises and sample files.
 
 ### vanilla
 
-Simple store created using only JS, no React and Redux used
+Simple store created using only JS, no React and Redux used.
 
 ### with-redux
 
-Same store as vanilla but using Redux (using from CDN)
+Same store as vanilla but using Redux (using from CDN).
 
 ### react-redux
 
-Same store as the others, but using React for the UI
+Same store as the others, but using React for the UI.
+
+### react-redux-async
+
+Same as react-redux, but using a fake database (available [here](https://ui.dev/goals-todos-api/index.js)) and handling async requests to the store.
