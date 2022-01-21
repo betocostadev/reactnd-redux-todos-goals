@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/react-dom@16.3.0-alpha.1/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
     <script src="https://tylermcginnis.com/goals-todos-api/index.js"></script>
+    <script src="https://unpkg.com/redux-thunk@2.2.0/dist/redux-thunk.min.js"></script>
     <title>Udacity Todos and Goals</title>
   </head>
   <body>
@@ -68,6 +69,86 @@
         return {
           type: RECEIVE_DATA,
           todos, goals
+        }
+      }
+
+      // Adding a new way to remove Items. The function below uses Redux Thunk
+      // This way we can split the code and void calling the API inside our dispatch in the UI.
+      // Unlike in the action creators above, in this action creator we return a function,
+      // the function accepts the dispatch, and it will call it.
+      function handleDeleteTodo(todo) {
+        return (dispatch) => {
+          dispatch(removeTodoAction(todo.id))
+  
+          return API.deleteTodo(todo.id)
+            .catch(() => {
+              dispatch(addTodoAction(todo))
+              alert('An error occured. Try again.')
+            })
+        }
+      }
+
+      // The following functions are also action creators, but returning functions that will be handled
+      // by ReduxThunk middleware
+      function handleToggleTodo(id) {
+        return (dispatch) => {
+          dispatch(toggleTodoAction(id))
+          
+          return API.saveTodoToggle(id)
+            .catch(() => {
+              dispatch(toggleTodoAction(id))
+              alert('An error ocurred, please try again.')
+            })
+        }
+      }
+
+      function handleAddTodo(name, cb) {
+        return (dispatch) => {
+          return API.saveTodo(name)
+            .then((todo) => {
+              dispatch(addTodoAction(todo))
+              cb()
+            })
+            .catch(() => {
+              alert('Sorry, there was an error adding the Todo Item.')
+            })
+        }
+      }
+
+      function handleAddGoal(name, cb) {
+        return async (dispatch) => {
+          try {
+            const goal = await API.saveGoal(name)
+            dispatch(addGoalAction(goal))
+            cb()
+          } catch (error) {
+            alert('Sorry, there was an error adding the Goal.') 
+          }
+        }
+      }
+
+      function handleDeleteGoal(goal) {
+        return (dispatch) => {
+          dispatch(removeGoalAction(goal.id))
+
+          return API.deleteGoal(goal.id)
+            .catch(() => {
+              dispatch(addGoalAction(goal))
+              alert('An error ocurred, please try again.')
+            })
+        }
+      }
+
+      function handleInitialData() {
+        return (dispatch) => {
+          return Promise.all([
+              API.fetchTodos(),
+              API.fetchGoals()
+            ]).then(([ todos, goals ]) => {
+              // console.log('Todos', todos)
+              // console.log('Goals', goals)
+              dispatch(receiveDataAction(todos, goals))
+            })
         }
       }
 
@@ -138,6 +219,16 @@
         return result
       }
 
+      // Third MIDDLEWARE - Thunk - Not Redux Thunk, a custom Thunk
+      // This is just an example of how we could create a Thunk.
+      // const thunk = store => next => action => {
+      //   if (typeof action === 'function') {
+      //     return action(store)
+      //   }
+
+      //   return next(action)
+      // }
+
 
       // App appending the store
       // Not needed when using Redux, look at the new store below
@@ -151,9 +242,10 @@
 
       // const store = Redux.createStore(app)
       // We pass the middleware as the second argument
+      // Middlewares run in the order they are passed!
       const store = Redux.createStore(
         Redux.combineReducers({ todos, goals, loading }),
-        Redux.applyMiddleware(checker, logger)
+        Redux.applyMiddleware(ReduxThunk.default, checker, logger)
         )
     </script>
 
@@ -180,39 +272,23 @@
         addItem = e => {
           e.preventDefault()
 
-          return API.saveTodo(this.input.value)
-            .then((todo) => {
-              this.props.store.dispatch(addTodoAction(todo))
-              this.input.value = ''
-            })
-            .catch(() => {
-              alert('Sorry, there was an error adding the Todo Item.')
-            })
+          const { dispatch } = this.props.store
+
+          dispatch(handleAddTodo(
+            this.input.value,
+            () => this.input.value = ''
+          ))
         }
 
         removeItem = todo => {
           const { dispatch } = this.props.store
-
-          dispatch(removeTodoAction(todo.id))
-
-          return API.deleteTodo(todo.id)
-            .catch(() => {
-              dispatch(addTodoAction(todo))
-              alert('An error occured. Try again.')
-            })
+          dispatch(handleDeleteTodo(todo))
         }
 
         toggleItem = id => {
           // Optimistic Update - Like in removeItem
           const { dispatch } = this.props.store
-          
-          dispatch(toggleTodoAction(id))
-          
-          return API.saveTodoToggle(id)
-            .catch(() => {
-              dispatch(toggleTodoAction(id))
-              alert('An error ocurred, please try again.')
-            })
+          dispatch(handleToggleTodo(id))
         }
 
         render() {
@@ -236,25 +312,15 @@
           e.preventDefault()
           const { dispatch } = this.props.store
 
-          try {
-            const goal = await API.saveGoal(this.input.value)
-            dispatch(addGoalAction(goal))
-            this.input.value = ''
-          } catch (error) {
-            alert('Sorry, there was an error adding the Goal.') 
-          }
+          dispatch(handleAddGoal(
+            this.input.value,
+            () => this.input.value = ''
+          ))
         }
 
         removeItem = goal => {
           const { dispatch } = this.props.store
-          
-          dispatch(removeGoalAction(goal.id))
-
-          return API.deleteGoal(goal.id)
-            .catch(() => {
-              dispatch(addGoalAction(goal))
-              alert('An error ocurred, please try again.')
-            })
+          dispatch(handleDeleteGoal(goal))
         }
 
         render() {
@@ -277,15 +343,7 @@
         componentDidMount () {
           const { store } = this.props
 
-          
-          Promise.all([
-            API.fetchTodos(),
-            API.fetchGoals()
-          ]).then(([ todos, goals ]) => {
-            // console.log('Todos', todos)
-            // console.log('Goals', goals)
-            store.dispatch(receiveDataAction(todos, goals))
-          })
+          store.dispatch(handleInitialData())
 
           // ATTENTION
           // This is an anti-pattern
