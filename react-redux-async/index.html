@@ -191,24 +191,26 @@
         }
 
         removeItem = todo => {
-          // Using Optimistic Updates to refresh the UI instantly
-          // Re-add the todo item back if the API fails
-          this.props.store.dispatch(removeTodoAction(todo.id))
+          const { dispatch } = this.props.store
+
+          dispatch(removeTodoAction(todo.id))
 
           return API.deleteTodo(todo.id)
             .catch(() => {
-              this.props.store.dispatch(addTodoAction(todo))
-              alert('An error ocurred, please try again.')
+              dispatch(addTodoAction(todo))
+              alert('An error occured. Try again.')
             })
         }
 
         toggleItem = id => {
           // Optimistic Update - Like in removeItem
-          this.props.store.dispatch(toggleTodoAction(id))
+          const { dispatch } = this.props.store
+          
+          dispatch(toggleTodoAction(id))
           
           return API.saveTodoToggle(id)
             .catch(() => {
-              this.props.store.dispatch(toggleTodoAction(id))
+              dispatch(toggleTodoAction(id))
               alert('An error ocurred, please try again.')
             })
         }
@@ -232,10 +234,11 @@
       class Goals extends React.Component {
         addItem = async(e) => {
           e.preventDefault()
+          const { dispatch } = this.props.store
 
           try {
             const goal = await API.saveGoal(this.input.value)
-            this.props.store.dispatch(addGoalAction(goal))
+            dispatch(addGoalAction(goal))
             this.input.value = ''
           } catch (error) {
             alert('Sorry, there was an error adding the Goal.') 
@@ -243,11 +246,13 @@
         }
 
         removeItem = goal => {
-          this.props.store.dispatch(removeGoalAction(goal.id))
+          const { dispatch } = this.props.store
+          
+          dispatch(removeGoalAction(goal.id))
 
           return API.deleteGoal(goal.id)
             .catch(() => {
-              this.props.store.dispatch(addGoalAction(goal))
+              dispatch(addGoalAction(goal))
               alert('An error ocurred, please try again.')
             })
         }
