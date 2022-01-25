@@ -272,7 +272,7 @@
         addItem = e => {
           e.preventDefault()
 
-          const { dispatch } = this.props.store
+          const { dispatch } = store
 
           dispatch(handleAddTodo(
             this.input.value,
@@ -281,13 +281,13 @@
         }
 
         removeItem = todo => {
-          const { dispatch } = this.props.store
+          const { dispatch } = store
           dispatch(handleDeleteTodo(todo))
         }
 
         toggleItem = id => {
           // Optimistic Update - Like in removeItem
-          const { dispatch } = this.props.store
+          const { dispatch } = store
           dispatch(handleToggleTodo(id))
         }
 
@@ -307,10 +307,31 @@
         }
       }
 
+      // Using a Custom component to use Context.Consumer, there is a better way below.
+      // class ConnectedTodos extends React.Component {
+      //   render() {
+      //     return(
+      //       <Context.Consumer>
+      //         {(store) => {
+      //           const { todos } = store.getState()
+      //           return <Todos todos={todos} dispatch={store.dispatch} />
+      //           }
+      //         }
+      //         </Context.Consumer>
+      //     )
+      //   }
+      // }
+
+      // Same as below (Connected Goals and Connected App):
+      // using connect instead of creating a custom component to make the connection
+      const ConnectedTodos = connect((state) => ({
+        todos: state.todos
+      }))(Todos)
+
       class Goals extends React.Component {
         addItem = async(e) => {
           e.preventDefault()
-          const { dispatch } = this.props.store
+          const { dispatch } = store
 
           dispatch(handleAddGoal(
             this.input.value,
@@ -319,7 +340,7 @@
         }
 
         removeItem = goal => {
-          const { dispatch } = this.props.store
+          const { dispatch } = store
           dispatch(handleDeleteGoal(goal))
         }
 
@@ -339,37 +360,119 @@
         }
       }
 
+      // class ConnectedGoals extends React.Component {
+      //   render() {
+      //     return (
+      //       <Context.Consumer>
+      //         {(store) => {
+      //           const { goals } = store.getState()
+      //           return <Goals goals={goals} dispatch={store.dispatch} />
+      //           }
+      //         }
+      //       </Context.Consumer>
+      //     )
+      //   }
+      // }
+
+      // Same as below, using Connect instead of creating a custom component to make the connection
+      const ConnectedGoals = connect((state) => ({
+        goals: state.goals
+      }))(Goals)
+
       class App extends React.Component {
         componentDidMount () {
-          const { store } = this.props
+          const { dispatch } = this.props
 
-          store.dispatch(handleInitialData())
-
-          // ATTENTION
-          // This is an anti-pattern
-          // This was called here just to do it fast without using setState
-          store.subscribe(() => this.forceUpdate())
+          dispatch(handleInitialData())
         }
         render() {
-          const { store } = this.props
-          const { todos, goals, loading } = store.getState()
-
-          if (loading) {
+          if (this.props.loading) {
             return <h3>Loading todos and goals...</h3>
           }
 
           return (
             <div>
               <h1>React App</h1>
-              <Todos todos={todos} store={this.props.store} />
-              <Goals goals={goals} store={this.props.store} />
+              <ConnectedTodos />
+              <ConnectedGoals />
             </div>
           )
         }
       }
 
+      // The Connected component here is used to pass the store as a prop to the App, since we will
+      // need to use information from the store as soon as the App is created.
+      // class ConnectedApp extends React.Component {
+      //   render() {
+      //     return (
+      //       <Context.Consumer>
+      //         {(store) => (
+      //           <App store={store} />
+      //         )}
+      //       </Context.Consumer>
+      //     )
+      //   }
+      // }
+
+      // Currying to use connect instead of using the Connected App component created above
+      const ConnectedApp = connect((state) => ({
+        loading: state.loading
+      }))(App)
+
+      const Context = React.createContext()
+
+      // The custom made connect
+      function connect(mapStateToProps) {
+        return (Component) => {
+          class Receiver extends React.Component {
+            componentDidMount() {
+              const { subscribe } = this.props.store
+
+              this.unsubscribe = subscribe(() => {
+                this.forceUpdate()
+              })
+            }
+
+            componentWillUnmount() {
+              this.unsubscribe()
+            }
+            render() {
+              const { dispatch, getState } = this.props.store
+              const state = getState()
+              const stateNeeded = mapStateToProps(state)
+
+              return <Component { ...stateNeeded } dispatch={dispatch} />
+            }
+          }
+          class ConnectedComponent extends React.Component {
+            render() {
+              return (
+                <Context.Consumer>
+                  {(store) => <Receiver store={store} />}
+                </Context.Consumer>
+              )
+            }
+          }
+
+          return ConnectedComponent
+
+        }
+      }
+
+      class Provider extends React.Component {
+        render() {
+          return (
+            <Context.Provider value={this.props.store} >
+              {this.props.children}
+            </Context.Provider>
+          )
+        }
+      }
+
       ReactDOM.render(
-        <App store={store} />,
+        <Provider store={store}>
+          <ConnectedApp />
+        </Provider>,
         document.getElementById('app')
         )
     </script>
