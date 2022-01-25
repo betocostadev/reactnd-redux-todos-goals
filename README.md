@@ -34,7 +34,13 @@ Same store as the others, but using React for the UI.
 
 Same as react-redux, but using a fake database (available [here](https://ui.dev/goals-todos-api/index.js)) and handling async requests to the store.
 
-### react-redux-async-context
+### react-redux-async-context-custom
 
 Same as react-redux-async, but added React Context to be able to use the store in other components without worrying to pass props (store data) to components.
 It leverages the use o Context.Provider and Context.Consumer
+It was created using a custom component to connect presentational components to connected components.
+Can be seen at line 422 in index.html
+
+### react-redux-async-context
+
+Same as above, but using the official Redux implementation to connect components.

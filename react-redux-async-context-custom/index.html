@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/redux/3.7.2/redux.min.js"></script>
+    <script src="https://unpkg.com/react@16.3.0-alpha.1/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@16.3.0-alpha.1/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
+    <script src="https://tylermcginnis.com/goals-todos-api/index.js"></script>
+    <script src="https://unpkg.com/redux-thunk@2.2.0/dist/redux-thunk.min.js"></script>
+    <script src="https://unpkg.com/react-redux@5.0.6/dist/react-redux.min.js"></script>
+    <title>Udacity Todos and Goals</title>
+  </head>
+  <body>
+    <div id="app" />
+
+    <script type="text/javascript">
+      // Action types
+      const ADD_TODO = 'ADD_TODO'
+      const REMOVE_TODO = 'REMOVE_TODO'
+      const TOGGLE_TODO = 'TOGGLE_TODO'
+      const ADD_GOAL = 'ADD_GOAL'
+      const REMOVE_GOAL = 'REMOVE_GOAL'
+      const RECEIVE_DATA = 'RECEIVE_DATA'
+
+      function generateId() {
+        return Math.random().toString(36).substring(2) + (new Date()).getTime().toString(36)
+      }
+
+      // Using Redux for the store
+      // Action reducers
+      function addTodoAction (todo) {
+        return {
+          type: ADD_TODO,
+          todo
+        }
+      }
+
+      function removeTodoAction (id) {
+        return {
+          type: REMOVE_TODO,
+          id
+        }
+      }
+
+      function toggleTodoAction (id) {
+        return {
+          type: TOGGLE_TODO,
+          id
+        }
+      }
+
+      function addGoalAction (goal) {
+        return {
+          type: ADD_GOAL,
+          goal
+        }
+      }
+
+      function removeGoalAction (id) {
+        return {
+          type: REMOVE_GOAL,
+          id
+        }
+      }
+
+      function receiveDataAction (todos, goals) {
+        return {
+          type: RECEIVE_DATA,
+          todos, goals
+        }
+      }
+
+      // Adding a new way to remove Items. The function below uses Redux Thunk
+      // This way we can split the code and void calling the API inside our dispatch in the UI.
+      // Unlike in the action creators above, in this action creator we return a function,
+      // the function accepts the dispatch, and it will call it.
+      function handleDeleteTodo(todo) {
+        return (dispatch) => {
+          dispatch(removeTodoAction(todo.id))
+  
+          return API.deleteTodo(todo.id)
+            .catch(() => {
+              dispatch(addTodoAction(todo))
+              alert('An error occured. Try again.')
+            })
+        }
+      }
+
+      // The following functions are also action creators, but returning functions that will be handled
+      // by ReduxThunk middleware
+      function handleToggleTodo(id) {
+        return (dispatch) => {
+          dispatch(toggleTodoAction(id))
+          
+          return API.saveTodoToggle(id)
+            .catch(() => {
+              dispatch(toggleTodoAction(id))
+              alert('An error ocurred, please try again.')
+            })
+        }
+      }
+
+      function handleAddTodo(name, cb) {
+        return (dispatch) => {
+          return API.saveTodo(name)
+            .then((todo) => {
+              dispatch(addTodoAction(todo))
+              cb()
+            })
+            .catch(() => {
+              alert('Sorry, there was an error adding the Todo Item.')
+            })
+        }
+      }
+
+      function handleAddGoal(name, cb) {
+        return async (dispatch) => {
+          try {
+            const goal = await API.saveGoal(name)
+            dispatch(addGoalAction(goal))
+            cb()
+          } catch (error) {
+            alert('Sorry, there was an error adding the Goal.') 
+          }
+        }
+      }
+
+      function handleDeleteGoal(goal) {
+        return (dispatch) => {
+          dispatch(removeGoalAction(goal.id))
+
+          return API.deleteGoal(goal.id)
+            .catch(() => {
+              dispatch(addGoalAction(goal))
+              alert('An error ocurred, please try again.')
+            })
+        }
+      }
+
+      function handleInitialData() {
+        return (dispatch) => {
+          return Promise.all([
+              API.fetchTodos(),
+              API.fetchGoals()
+            ]).then(([ todos, goals ]) => {
+              // console.log('Todos', todos)
+              // console.log('Goals', goals)
+              dispatch(receiveDataAction(todos, goals))
+            })
+        }
+      }
+
+      // Reducers
+      function todos (state = [], action) {
+        switch (action.type) {
+          case ADD_TODO:
+            return state.concat([action.todo])
+          case REMOVE_TODO:
+            return state.filter(todo => todo.id !== action.id)
+          case TOGGLE_TODO:
+            return state.map(todo => todo.id !== action.id 
+              ? todo 
+              : Object.assign({}, todo, { complete: !todo.complete }))
+          case RECEIVE_DATA:
+            return action.todos
+          default:
+            return state
+        }
+      }
+
+      function goals (state = [], action) {
+        switch (action.type) {
+          case ADD_GOAL:
+            return state.concat([action.goal])
+          case REMOVE_GOAL:
+            return state.filter(goal => goal.id !== action.id)
+          case RECEIVE_DATA:
+            return action.goals 
+          default:
+            return state
+        }
+      }
+
+      function loading (state = true, action) {
+        switch (action.type) {
+          case RECEIVE_DATA:
+            return false
+          default:
+            return state
+        }
+      }
+
+      // USING A MIDDLEWARE
+      // We return another function. Next will be the next middleware if there is any
+        // and the dispatch, if there is no more middleware
+      const checker = store => next => action => {
+        if (
+            action.type === ADD_TODO
+            && action.todo.name.toLowerCase().includes('bitcoin')
+            || action.type === ADD_GOAL
+            && action.goal.name.toLowerCase().includes('bitcoin')
+          ) {
+            return alert('Nope! That\'s a bad idea.')
+          }
+
+          return next(action)
+      }
+
+      // Second MIDDLEWARE - Logger
+      const logger = store => next => action => {
+        console.group(action.type)
+        console.log('The action: ', action)
+        const result = next(action)
+        console.log('The new state is: ', store.getState())
+
+        console.groupEnd()
+        return result
+      }
+
+      // Third MIDDLEWARE - Thunk - Not Redux Thunk, a custom Thunk
+      // This is just an example of how we could create a Thunk.
+      // const thunk = store => next => action => {
+      //   if (typeof action === 'function') {
+      //     return action(store)
+      //   }
+
+      //   return next(action)
+      // }
+
+
+      // App appending the store
+      // Not needed when using Redux, look at the new store below
+      // function app (state = {}, action) {
+      //   return {
+      //     // todos: {},
+      //     todos: todos(state.todos, action),
+      //     goals: goals(state.goals, action)
+      //   }
+      // }
+
+      // const store = Redux.createStore(app)
+      // We pass the middleware as the second argument
+      // Middlewares run in the order they are passed!
+      const store = Redux.createStore(
+        Redux.combineReducers({ todos, goals, loading }),
+        Redux.applyMiddleware(ReduxThunk.default, checker, logger)
+        )
+    </script>
+
+    <script type="text/babel">
+      function List(props) {
+        return (
+          <ul>
+            { props.items.map(item => (
+                <li key={item.id}>
+                  <span 
+                    onClick={() => props.toggle && props.toggle(item.id)}
+                    style={{textDecoration: item.complete ? 'line-through' : 'none'}}
+                    >{item.name}</span>
+                  <button style={{ marginLeft: '10px'}} onClick={() => props.remove(item)}>
+                    X
+                  </button>
+                </li>
+            ))}
+          </ul>
+        )
+      }
+
+      class Todos extends React.Component {
+        addItem = e => {
+          e.preventDefault()
+
+          const { dispatch } = store
+
+          dispatch(handleAddTodo(
+            this.input.value,
+            () => this.input.value = ''
+          ))
+        }
+
+        removeItem = todo => {
+          const { dispatch } = store
+          dispatch(handleDeleteTodo(todo))
+        }
+
+        toggleItem = id => {
+          // Optimistic Update - Like in removeItem
+          const { dispatch } = store
+          dispatch(handleToggleTodo(id))
+        }
+
+        render() {
+          return(
+            <div>
+              <h2>Todo List</h2>
+              <input
+                type='text'
+                placeholder='Add Todo'
+                ref={(input) => this.input = input}
+              />
+              <button onClick={this.addItem}>Add Todo</button>
+              <List items={this.props.todos} remove={this.removeItem} toggle={this.toggleItem} />
+            </div>
+          )
+        }
+      }
+
+      const ConnectedTodos = ReactRedux.connect((state) => ({
+        todos: state.todos
+      }))(Todos)
+
+      class Goals extends React.Component {
+        addItem = async(e) => {
+          e.preventDefault()
+          const { dispatch } = store
+
+          dispatch(handleAddGoal(
+            this.input.value,
+            () => this.input.value = ''
+          ))
+        }
+
+        removeItem = goal => {
+          const { dispatch } = store
+          dispatch(handleDeleteGoal(goal))
+        }
+
+        render() {
+          return (
+            <div>
+              <h2>Goals List</h2>
+              <input
+                type='text'
+                placeholder='Add Goal'
+                ref={(input) => this.input = input}
+              />
+              <button onClick={this.addItem}>Add Goal</button>
+              <List items={this.props.goals} remove={this.removeItem} />
+            </div>
+          )
+        }
+      }
+
+      // class ConnectedGoals extends React.Component {
+      //   render() {
+      //     return (
+      //       <Context.Consumer>
+      //         {(store) => {
+      //           const { goals } = store.getState()
+      //           return <Goals goals={goals} dispatch={store.dispatch} />
+      //           }
+      //         }
+      //       </Context.Consumer>
+      //     )
+      //   }
+      // }
+
+      // Same as below, using Connect instead of creating a custom component to make the connection
+      const ConnectedGoals = ReactRedux.connect((state) => ({
+        goals: state.goals
+      }))(Goals)
+
+      class App extends React.Component {
+        componentDidMount () {
+          const { dispatch } = this.props
+
+          dispatch(handleInitialData())
+        }
+        render() {
+          if (this.props.loading) {
+            return <h3>Loading todos and goals...</h3>
+          }
+
+          return (
+            <div>
+              <h1>React App</h1>
+              <ConnectedTodos />
+              <ConnectedGoals />
+            </div>
+          )
+        }
+      }
+
+      // Currying to use connect instead of using the Connected App component created above
+      const ConnectedApp = ReactRedux.connect((state) => ({
+        loading: state.loading
+      }))(App)
+
+      ReactDOM.render(
+        <ReactRedux.Provider store={store}>
+          <ConnectedApp />
+        </ReactRedux.Provider>,
+        document.getElementById('app')
+        )
+    </script>
+    
+  </body>
+</html>
